@@ -204,7 +204,7 @@ class Number
      * @param  bool  $useBinaryPrefix
      * @return string
      */
-    public static function fileSize(int|float $bytes, int $precision = 0, ?int $maxPrecision = null, bool $useBinaryPrefix = false)
+    public static function fileSize(int|float $bytes, int $precision = 0, ?int $maxPrecision = null, bool $useBinaryPrefix = true)
     {
         $base = $useBinaryPrefix ? 1024 : 1000;
 
