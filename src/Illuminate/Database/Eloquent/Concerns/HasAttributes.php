@@ -2265,7 +2265,9 @@ trait HasAttributes
         $attribute = Arr::get($this->attributes, $key);
         $original = Arr::get($this->original, $key);
 
-        if ($attribute === $original) {
+        if ($this->hasCompareMutator($key)) {
+            return $this->compareAttribute($key, $original, $attribute);
+        } elseif ($attribute === $original) {
             return true;
         } elseif (is_null($attribute)) {
             return false;
@@ -2467,5 +2469,29 @@ trait HasAttributes
 
             return false;
         })->map->name->values()->all();
+    }
+
+    /**
+     * Determine if a compare mutator exists for an attribute.
+     *
+     * @param  string  $key
+     * @return bool
+     */
+    public function hasCompareMutator($key)
+    {
+        return method_exists($this, 'compare'.Str::studly($key).'Attribute');
+    }
+
+    /**
+     * Compare the value of an "Attribute" using its mutator.
+     *
+     * @param  string  $key
+     * @param  mixed  $original
+     * @param mixed  $value
+     * @return bool
+     */
+    protected function compareAttribute($key, $original, $value)
+    {
+        return $this->{'compare'.Str::studly($key).'Attribute'}($original, $value);
     }
 }
