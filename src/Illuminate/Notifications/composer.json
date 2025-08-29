@@ -28,7 +28,10 @@
     "autoload": {
         "psr-4": {
             "Illuminate\\Notifications\\": ""
-        }
+        },
+        "files": [
+            "helpers.php"
+        ]
     },
     "extra": {
         "branch-alias": {
