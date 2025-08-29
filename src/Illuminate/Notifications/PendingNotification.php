@@ -2,8 +2,6 @@
 
 namespace Illuminate\Notifications;
 
-use Illuminate\Support\Collection;
-
 class PendingNotification
 {
     /**
