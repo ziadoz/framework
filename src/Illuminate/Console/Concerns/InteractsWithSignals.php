@@ -50,4 +50,26 @@ trait InteractsWithSignals
             $this->signals = null;
         }
     }
+
+    /**
+     * Schedule an alarm signal and a call to be run when the signal occurs.
+     *
+     * @param  int  $seconds
+     * @param  ?callable(int $signal): void  $callback
+     * @return void
+     */
+    public function alarm($seconds, $callback = null)
+    {
+        Signals::whenAvailable(function () use ($seconds, $callback) {
+            $this->getApplication()->setAlarmInterval($seconds);
+
+            if ($callback) {
+                $this->signals ??= new Signals(
+                    $this->getApplication()->getSignalRegistry(),
+                );
+
+                $this->signals->register(SIGALRM, $callback);
+            }
+        });
+    }
 }
