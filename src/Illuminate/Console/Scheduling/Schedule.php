@@ -316,7 +316,7 @@ class Schedule
 
         $events($this);
 
-        $this->attributes = array_pop($this->previousAttributes);
+        $this->attributes = array_shift($this->previousAttributes);
     }
 
     /**
