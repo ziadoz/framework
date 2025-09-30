@@ -95,6 +95,13 @@ class Schedule
     protected $attributes;
 
     /**
+     * The previous attributes before grouping.
+     *
+     * @var array<\Illuminate\Console\Scheduling\PendingEventAttributes>
+     */
+    protected $previousAttributes = [];
+
+    /**
      * Create a new schedule instance.
      *
      * @param  \DateTimeZone|string|null  $timezone
@@ -305,11 +312,11 @@ class Schedule
             throw new RuntimeException('Invoke an attribute method such as Schedule::daily() before defining a schedule group.');
         }
 
-        $previousAttributes = clone $this->attributes;
+        $this->previousAttributes[] = clone $this->attributes;
 
         $events($this);
 
-        $this->attributes = $previousAttributes;
+        $this->attributes = array_pop($this->previousAttributes);
     }
 
     /**
@@ -445,7 +452,7 @@ class Schedule
         if (isset($this->attributes)) {
             $this->attributes->mergeAttributes($event);
 
-            $this->attributes = null;
+            $this->attributes = end($this->previousAttributes) ?: new PendingEventAttributes($this);
         }
     }
 
