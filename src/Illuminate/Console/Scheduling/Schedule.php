@@ -320,6 +320,21 @@ class Schedule
     }
 
     /**
+     * Merge the current group attributes with the given event.
+     *
+     * @param  \Illuminate\Console\Scheduling\Event  $event
+     * @return void
+     */
+    protected function mergePendingAttributes(Event $event)
+    {
+        if (isset($this->attributes)) {
+            $this->attributes->mergeAttributes($event);
+
+            $this->attributes = end($this->previousAttributes) ? clone end($this->previousAttributes) : null;
+        }
+    }
+
+    /**
      * Compile parameters for a command.
      *
      * @param  array  $parameters
@@ -439,21 +454,6 @@ class Schedule
         }
 
         return $this->dispatcher;
-    }
-
-    /**
-     * Merge the current group attributes with the given event.
-     *
-     * @param  \Illuminate\Console\Scheduling\Event  $event
-     * @return void
-     */
-    protected function mergePendingAttributes(Event $event)
-    {
-        if (isset($this->attributes)) {
-            $this->attributes->mergeAttributes($event);
-
-            $this->attributes = end($this->previousAttributes) ? clone end($this->previousAttributes) : null;
-        }
     }
 
     /**
