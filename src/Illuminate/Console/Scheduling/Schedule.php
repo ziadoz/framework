@@ -444,6 +444,8 @@ class Schedule
     {
         if (isset($this->attributes)) {
             $this->attributes->mergeAttributes($event);
+
+            $this->attributes = null;
         }
     }
 
