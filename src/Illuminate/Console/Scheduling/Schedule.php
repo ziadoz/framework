@@ -135,7 +135,7 @@ class Schedule
             $this->eventMutex, $callback, $parameters, $this->timezone
         );
 
-        $this->attributes->mergeAttributes($event);
+        $this->mergePendingAttributes($event);
 
         return $event;
     }
@@ -286,7 +286,7 @@ class Schedule
 
         $this->events[] = $event = new Event($this->eventMutex, $command, $this->timezone);
 
-        $this->attributes->mergeAttributes($event);
+        $this->mergePendingAttributes($event);
 
         return $event;
     }
@@ -432,6 +432,19 @@ class Schedule
         }
 
         return $this->dispatcher;
+    }
+
+    /**
+     * Merge the current group attributes with the given event.
+     *
+     * @param  \Illuminate\Console\Scheduling\Event  $event
+     * @return void
+     */
+    protected function mergePendingAttributes(Event $event)
+    {
+        if (isset($this->attributes)) {
+            $this->attributes->mergeAttributes($event);
+        }
     }
 
     /**
