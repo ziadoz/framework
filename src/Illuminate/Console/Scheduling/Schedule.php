@@ -452,7 +452,7 @@ class Schedule
         if (isset($this->attributes)) {
             $this->attributes->mergeAttributes($event);
 
-            $this->attributes = end($this->previousAttributes) ?: new PendingEventAttributes($this);
+            $this->attributes = end($this->previousAttributes) ?: null;
         }
     }
 
