@@ -103,8 +103,6 @@ class Schedule
      */
     public function __construct($timezone = null)
     {
-        $this->attributes = new PendingEventAttributes($this);
-
         $this->timezone = $timezone;
 
         if (! class_exists(Container::class)) {
@@ -450,6 +448,8 @@ class Schedule
         }
 
         if (method_exists(PendingEventAttributes::class, $method)) {
+            $this->attributes ??= new PendingEventAttributes($this);
+
             return $this->attributes->$method(...$parameters);
         }
 
