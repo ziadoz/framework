@@ -95,13 +95,6 @@ class Schedule
     protected $attributes;
 
     /**
-     * The schedule group attributes stack.
-     *
-     * @var array<int, PendingEventAttributes>
-     */
-    protected array $groupStack = [];
-
-    /**
      * Create a new schedule instance.
      *
      * @param  \DateTimeZone|string|null  $timezone
@@ -110,6 +103,8 @@ class Schedule
      */
     public function __construct($timezone = null)
     {
+        $this->attributes = new PendingEventAttributes($this);
+
         $this->timezone = $timezone;
 
         if (! class_exists(Container::class)) {
@@ -142,7 +137,7 @@ class Schedule
             $this->eventMutex, $callback, $parameters, $this->timezone
         );
 
-        $this->mergePendingAttributes($event);
+        $this->attributes->mergeAttributes($event);
 
         return $event;
     }
@@ -293,7 +288,7 @@ class Schedule
 
         $this->events[] = $event = new Event($this->eventMutex, $command, $this->timezone);
 
-        $this->mergePendingAttributes($event);
+        $this->attributes->mergeAttributes($event);
 
         return $event;
     }
@@ -312,33 +307,11 @@ class Schedule
             throw new RuntimeException('Invoke an attribute method such as Schedule::daily() before defining a schedule group.');
         }
 
-        $this->groupStack[] = $this->attributes;
-        $this->attributes = null;
+        $previousAttributes = clone $this->attributes;
 
         $events($this);
 
-        array_pop($this->groupStack);
-    }
-
-    /**
-     * Merge the current group attributes with the given event.
-     *
-     * @param  \Illuminate\Console\Scheduling\Event  $event
-     * @return void
-     */
-    protected function mergePendingAttributes(Event $event)
-    {
-        if (! empty($this->groupStack)) {
-            $group = array_last($this->groupStack);
-
-            $group->mergeAttributes($event);
-        }
-
-        if (isset($this->attributes)) {
-            $this->attributes->mergeAttributes($event);
-
-            $this->attributes = null;
-        }
+        $this->attributes = $previousAttributes;
     }
 
     /**
@@ -477,8 +450,6 @@ class Schedule
         }
 
         if (method_exists(PendingEventAttributes::class, $method)) {
-            $this->attributes ??= $this->groupStack ? clone array_last($this->groupStack) : new PendingEventAttributes($this);
-
             return $this->attributes->$method(...$parameters);
         }
 
