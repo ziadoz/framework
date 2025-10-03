@@ -188,21 +188,25 @@ class ScheduleGroupTest extends TestCase
         $schedule->weekdays()
             ->withoutOverlapping()
             ->group(function ($schedule) {
-                $schedule->command('inspire')->at('00:00');                // this is event, not pending attribute
-                $schedule->at('01:00')->command('inspire');                // this is pending attribute
-                $schedule->command('inspire');                             // this goes back to group pending attribute
-                $schedule->job(JobToTestWithSchedule::class)->at('04:00'); // this is event, not pending attribute
-                $schedule->group(function () {
-                    Schedule::at('02:00')->timezone('Europe/London')->command('inspire');
+                $schedule->command('inspire')->at('14:00'); // this is event, not pending attribute
+                $schedule->at('03:00')->command('inspire'); // this is pending attribute
+                $schedule->command('inspire');  // this goes back to group pending attribute
+                $schedule->job(JobToTestWithSchedule::class)->at('04:00');  // this is pending attribute
+                $schedule->daily()->group(function () {
+                    // An empty group...
+                });
+                $schedule->command('inspire')->at('13:37');
+                $schedule->daily()->group(function () {
+                    Schedule::command('inspire')->at('00:42');
                 });
             });
 
         $events = $schedule->events();
-        dump($events);
-        $this->assertSame('0 0 * * 1-5', $events[0]->expression);
-        $this->assertSame('0 1 * * 1-5', $events[1]->expression);
+        $this->assertSame('0 14 * * 1-5', $events[0]->expression);
+        $this->assertSame('0 3 * * 1-5', $events[1]->expression);
         $this->assertSame('* * * * 1-5', $events[2]->expression);
         $this->assertSame('0 4 * * 1-5', $events[3]->expression);
-        //$this->assertSame('', $events[4]->expression);
+        $this->assertSame('', $events[4]->expression);
+        $this->assertSame('', $events[5]->expression);
     }
 }
