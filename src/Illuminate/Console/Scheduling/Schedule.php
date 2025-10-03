@@ -95,11 +95,11 @@ class Schedule
     protected $attributes;
 
     /**
-     * The previous attributes before grouping.
+     * The schedule group attributes stack.
      *
-     * @var array<\Illuminate\Console\Scheduling\PendingEventAttributes>
+     * @var array<int, PendingEventAttributes>
      */
-    protected $previousAttributes = [];
+    protected array $groupStack = [];
 
     /**
      * Create a new schedule instance.
@@ -312,11 +312,13 @@ class Schedule
             throw new RuntimeException('Invoke an attribute method such as Schedule::daily() before defining a schedule group.');
         }
 
-        $this->previousAttributes[] = clone $this->attributes;
+        $this->groupStack[] = clone $this->attributes;
 
         $events($this);
 
-        $this->attributes = array_shift($this->previousAttributes);
+        array_pop($this->groupStack);
+
+        $this->attributes = array_pop($this->groupStack);
     }
 
     /**
@@ -330,7 +332,7 @@ class Schedule
         if (isset($this->attributes)) {
             $this->attributes->mergeAttributes($event);
 
-            $this->attributes = array_last($this->previousAttributes) ? clone array_last($this->previousAttributes) : null;
+            $this->attributes = array_last($this->groupStack) ? clone array_last($this->groupStack) : null;
         }
     }
 
