@@ -28,7 +28,8 @@ class DownCommand extends Command
                                  {--refresh= : The number of seconds after which the browser may refresh}
                                  {--secret= : The secret phrase that may be used to bypass maintenance mode}
                                  {--with-secret : Generate a random secret phrase that may be used to bypass maintenance mode}
-                                 {--status=503 : The status code that should be used when returning the maintenance mode response}';
+                                 {--status=503 : The status code that should be used when returning the maintenance mode response}
+                                 {--message= : The message that should be displayed during maintenance mode}';
 
     /**
      * The console command description.
@@ -92,6 +93,7 @@ class DownCommand extends Command
             'refresh' => $this->option('refresh'),
             'secret' => $this->getSecret(),
             'status' => (int) ($this->option('status') ?? 503),
+            'message' => $this->option('message'),
             'template' => $this->option('render') ? $this->prerenderView() : null,
         ];
     }
@@ -139,6 +141,7 @@ class DownCommand extends Command
 
         return view($this->option('render'), [
             'retryAfter' => $this->option('retry'),
+            'message' => $this->option('message'),
         ])->render();
     }
 
