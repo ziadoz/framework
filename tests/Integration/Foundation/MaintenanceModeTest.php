@@ -14,6 +14,7 @@ use Illuminate\Foundation\Events\MaintenanceModeEnabled;
 use Illuminate\Foundation\Http\MaintenanceModeBypassCookie;
 use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Mockery;
@@ -120,6 +121,44 @@ class MaintenanceModeTest extends TestCase
         $response->assertStatus(503);
         $response->assertHeader('Retry-After', '60');
         $response->assertJson(['message' => 'Service Unavailable']);
+    }
+
+    public function testMaintenanceModeCanHaveCustomMessage()
+    {
+        $this->artisan(DownCommand::class, ['--message' => 'We will be back soon.']);
+
+        $data = json_decode(file_get_contents(storage_path('framework/down')), true);
+        $this->assertSame('We will be back soon.', $data['message']);
+    }
+
+    public function testMaintenanceModeCanPrerenderTemplateWithCustomMessage()
+    {
+        Config::set('view.paths', [__DIR__.'/Fixtures/MaintenanceMode']);
+
+        $this->artisan(DownCommand::class, [
+            '--render' => 'errors::503',
+            '--message' => 'We will be back soon.',
+        ]);
+
+        Route::get('/foo', fn () => 'Hello World')->middleware(PreventRequestsDuringMaintenance::class);
+
+        $this->get('/foo')
+            ->assertStatus(503)
+            ->assertSeeText('We will be back soon.');
+    }
+
+    public function testMaintenanceModeReturnsCustomMessageForJsonRequests()
+    {
+        file_put_contents(storage_path('framework/down'), json_encode([
+            'retry' => 60,
+            'message' => 'We will be back soon.',
+        ]));
+
+        Route::get('/foo', fn () => 'Hello World')->middleware(PreventRequestsDuringMaintenance::class);
+
+        $this->getJson('/foo')
+            ->assertStatus(503)
+            ->assertJson(['message' => 'We will be back soon.']);
     }
 
     public function testMaintenanceModeDoesNotRedirectJsonRequests()
