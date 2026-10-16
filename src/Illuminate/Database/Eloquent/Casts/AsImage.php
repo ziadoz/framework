@@ -13,13 +13,6 @@ use InvalidArgumentException;
 class AsImage implements Castable
 {
     /**
-     * The image formats supported by the cast.
-     *
-     * @var string[]
-     */
-    public const FORMATS = ['storage', 'url', 'base64', 'bytes'];
-
-    /**
      * Get the caster class to use when casting from / to this cast target.
      *
      * @param  array{0?: string, 1?: string, 2?: string}  $arguments
@@ -64,12 +57,10 @@ class AsImage implements Castable
                 $this->disk = ($arguments[1] ?? '') ?: null;
                 $this->folder = ($arguments[2] ?? '') ?: null;
 
-                if (! in_array($this->format, AsImage::FORMATS, true)) {
-                    throw new InvalidArgumentException(sprintf(
-                        'Unsupported image cast format [%s]. Allowed formats are: %s.',
-                        $this->format,
-                        implode(', ', AsImage::FORMATS),
-                    ));
+                if (! in_array($this->format, ['storage', 'url', 'base64', 'bytes'], true)) {
+                    throw new InvalidArgumentException(
+                        "Unsupported image cast format [{$this->format}]. Allowed formats are: storage, url, base64, bytes."
+                    );
                 }
             }
 
