@@ -155,6 +155,53 @@ class DatabaseEloquentAsImageCastTest extends TestCase
         $this->assertSame($this->pngBytes(), $model->blob->toBytes());
     }
 
+    public function testGetResolvesHttpAndHttpsUrls()
+    {
+        $model = new AsImageTestModel;
+
+        $model->setRawAttributes(['logo' => 'https://example.com/logo.png']);
+        $this->assertInstanceOf(Image::class, $model->logo);
+
+        $model->setRawAttributes(['logo' => 'http://example.com/logo.png']);
+        $this->assertInstanceOf(Image::class, $model->logo);
+    }
+
+    public function testGetThrowsWhenAUrlAttributeIsNotAnHttpUrl()
+    {
+        $this->expectExceptionObject(new InvalidArgumentException(
+            'The [logo] attribute must contain an HTTP or HTTPS URL.'
+        ));
+
+        $model = new AsImageTestModel;
+        $model->setRawAttributes(['logo' => 'file:///etc/passwd']);
+        $model->logo;
+    }
+
+    public function testGetThrowsWhenAUrlAttributeHoldsAPath()
+    {
+        $this->expectExceptionObject(new InvalidArgumentException(
+            'The [logo] attribute must contain an HTTP or HTTPS URL.'
+        ));
+
+        $model = new AsImageTestModel;
+        $model->setRawAttributes(['logo' => 'avatars/jane.webp']);
+        $model->logo;
+    }
+
+    public function testStorageAttributesDoNotFollowUrls()
+    {
+        $this->fakeDisk('s3')
+            ->shouldReceive('get')
+            ->once()
+            ->with('https://example.com/logo.png')
+            ->andReturn($this->pngBytes());
+
+        $model = new AsImageTestModel;
+        $model->setRawAttributes(['avatar' => 'https://example.com/logo.png']);
+
+        $this->assertSame($this->pngBytes(), $model->avatar->toBytes());
+    }
+
     public function testCastThrowsOnAnUnsupportedFormat()
     {
         $this->expectExceptionObject(new InvalidArgumentException(

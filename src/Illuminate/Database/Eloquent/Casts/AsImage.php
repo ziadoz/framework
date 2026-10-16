@@ -81,7 +81,7 @@ class AsImage implements Castable
 
                 return match ($this->format) {
                     'storage' => ImageFacade::fromStorage($value, $this->disk),
-                    'url' => ImageFacade::fromUrl($value),
+                    'url' => $this->fromUrl($value, $key),
                     'base64' => ImageFacade::fromBase64($value),
                     'bytes' => ImageFacade::fromBytes($value),
                 };
@@ -106,6 +106,22 @@ class AsImage implements Castable
             public function serialize($model, $key, $value, $attributes)
             {
                 return $attributes[$key] ?? null;
+            }
+
+            /**
+             * Resolve the image from an HTTP or HTTPS URL.
+             *
+             * @throws \InvalidArgumentException
+             */
+            protected function fromUrl(string $value, string $key): Image
+            {
+                if (! str_starts_with($value, 'https://') && ! str_starts_with($value, 'http://')) {
+                    throw new InvalidArgumentException(
+                        "The [{$key}] attribute must contain an HTTP or HTTPS URL."
+                    );
+                }
+
+                return ImageFacade::fromUrl($value);
             }
 
             /**
