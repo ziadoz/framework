@@ -57,9 +57,9 @@ class AsImage implements Castable
                 $this->disk = ($arguments[1] ?? '') ?: null;
                 $this->folder = ($arguments[2] ?? '') ?: null;
 
-                if (! in_array($this->format, ['storage', 'url', 'base64', 'bytes'], true)) {
+                if (! in_array($this->format, ['storage', 'base64', 'bytes'], true)) {
                     throw new InvalidArgumentException(
-                        "Unsupported image cast format [{$this->format}]. Allowed formats are: storage, url, base64, bytes."
+                        "Unsupported image cast format [{$this->format}]. Allowed formats are: storage, base64, bytes."
                     );
                 }
             }
@@ -72,7 +72,6 @@ class AsImage implements Castable
 
                 return match ($this->format) {
                     'storage' => ImageFacade::fromStorage($value, $this->disk),
-                    'url' => $this->fromUrl($value, $key),
                     'base64' => ImageFacade::fromBase64($value),
                     'bytes' => ImageFacade::fromBytes($value),
                 };
@@ -88,31 +87,12 @@ class AsImage implements Castable
                     'storage' => $this->store($value, $key),
                     'base64' => $value->toBase64(),
                     'bytes' => $value->toBytes(),
-                    'url' => throw new InvalidArgumentException(
-                        "Unable to assign an image to the [{$key}] attribute. Assign a URL instead."
-                    ),
                 };
             }
 
             public function serialize($model, $key, $value, $attributes)
             {
                 return $attributes[$key] ?? null;
-            }
-
-            /**
-             * Resolve the image from an HTTP or HTTPS URL.
-             *
-             * @throws \InvalidArgumentException
-             */
-            protected function fromUrl(string $value, string $key): Image
-            {
-                if (! str_starts_with($value, 'https://') && ! str_starts_with($value, 'http://')) {
-                    throw new InvalidArgumentException(
-                        "The [{$key}] attribute must contain an HTTP or HTTPS URL."
-                    );
-                }
-
-                return ImageFacade::fromUrl($value);
             }
 
             /**
@@ -139,14 +119,6 @@ class AsImage implements Castable
     public static function toStorage(?string $disk = null, ?string $folder = null): string
     {
         return static::class.':storage,'.$disk.','.$folder;
-    }
-
-    /**
-     * Resolve the image from a URL.
-     */
-    public static function toUrl(): string
-    {
-        return static::class.':url';
     }
 
     /**

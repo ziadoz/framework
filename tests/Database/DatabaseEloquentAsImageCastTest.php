@@ -55,13 +55,11 @@ class DatabaseEloquentAsImageCastTest extends TestCase
         $model = new AsImageTestModel;
         $model->setRawAttributes([
             'avatar' => null,
-            'logo' => null,
             'thumbnail' => null,
             'blob' => null,
         ]);
 
         $this->assertNull($model->avatar);
-        $this->assertNull($model->logo);
         $this->assertNull($model->thumbnail);
         $this->assertNull($model->blob);
     }
@@ -73,13 +71,11 @@ class DatabaseEloquentAsImageCastTest extends TestCase
         $model = new AsImageTestModel;
         $model->setRawAttributes([
             'avatar' => 'avatars/jane.webp',
-            'logo' => 'https://example.com/logo.png',
             'thumbnail' => base64_encode($this->pngBytes()),
             'blob' => $this->pngBytes(),
         ]);
 
         $this->assertInstanceOf(Image::class, $model->avatar);
-        $this->assertInstanceOf(Image::class, $model->logo);
         $this->assertInstanceOf(Image::class, $model->thumbnail);
         $this->assertInstanceOf(Image::class, $model->blob);
     }
@@ -155,39 +151,6 @@ class DatabaseEloquentAsImageCastTest extends TestCase
         $this->assertSame($this->pngBytes(), $model->blob->toBytes());
     }
 
-    public function testGetResolvesHttpAndHttpsUrls()
-    {
-        $model = new AsImageTestModel;
-
-        $model->setRawAttributes(['logo' => 'https://example.com/logo.png']);
-        $this->assertInstanceOf(Image::class, $model->logo);
-
-        $model->setRawAttributes(['logo' => 'http://example.com/logo.png']);
-        $this->assertInstanceOf(Image::class, $model->logo);
-    }
-
-    public function testGetThrowsWhenAUrlAttributeIsNotAnHttpUrl()
-    {
-        $this->expectExceptionObject(new InvalidArgumentException(
-            'The [logo] attribute must contain an HTTP or HTTPS URL.'
-        ));
-
-        $model = new AsImageTestModel;
-        $model->setRawAttributes(['logo' => 'file:///etc/passwd']);
-        $model->logo;
-    }
-
-    public function testGetThrowsWhenAUrlAttributeHoldsAPath()
-    {
-        $this->expectExceptionObject(new InvalidArgumentException(
-            'The [logo] attribute must contain an HTTP or HTTPS URL.'
-        ));
-
-        $model = new AsImageTestModel;
-        $model->setRawAttributes(['logo' => 'avatars/jane.webp']);
-        $model->logo;
-    }
-
     public function testStorageAttributesDoNotFollowUrls()
     {
         $this->fakeDisk('s3')
@@ -205,7 +168,7 @@ class DatabaseEloquentAsImageCastTest extends TestCase
     public function testCastThrowsOnAnUnsupportedFormat()
     {
         $this->expectExceptionObject(new InvalidArgumentException(
-            'Unsupported image cast format [nonsense]. Allowed formats are: storage, url, base64, bytes.'
+            'Unsupported image cast format [nonsense]. Allowed formats are: storage, base64, bytes.'
         ));
 
         $model = new AsImageTestModel;
@@ -218,10 +181,8 @@ class DatabaseEloquentAsImageCastTest extends TestCase
         $model = new AsImageTestModel;
 
         $model->avatar = 'avatars/jane.webp';
-        $model->logo = 'https://example.com/logo.png';
 
         $this->assertSame('avatars/jane.webp', $model->getAttributes()['avatar']);
-        $this->assertSame('https://example.com/logo.png', $model->getAttributes()['logo']);
     }
 
     public function testSetWritesNullVerbatim()
@@ -259,16 +220,6 @@ class DatabaseEloquentAsImageCastTest extends TestCase
         $this->assertMatchesRegularExpression(
             '#^avatars/[A-Za-z0-9]{40}\.png$#', $model->getAttributes()['avatar']
         );
-    }
-
-    public function testSetThrowsWhenAssigningAnImageToAUrlAttribute()
-    {
-        $this->expectExceptionObject(new InvalidArgumentException(
-            'Unable to assign an image to the [logo] attribute. Assign a URL instead.'
-        ));
-
-        $model = new AsImageTestModel;
-        $model->logo = new Image($this->pngBytes());
     }
 
     public function testReadingAnAttributeDoesNotRewriteItOnSave()
@@ -330,7 +281,6 @@ class AsImageTestModel extends Model
     {
         return [
             'avatar' => AsImage::toStorage('s3', 'avatars'),
-            'logo' => AsImage::toUrl(),
             'thumbnail' => AsImage::toBase64(),
             'blob' => AsImage::toBytes(),
             'icon' => AsImage::class,

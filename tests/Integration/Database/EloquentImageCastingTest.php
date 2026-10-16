@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Image\Image as ImageInstance;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Image;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -23,7 +22,6 @@ class EloquentImageCastingTest extends DatabaseTestCase
         Schema::create('image_models', function (Blueprint $table) {
             $table->increments('id');
             $table->string('avatar')->nullable();
-            $table->string('logo')->nullable();
             $table->text('thumbnail')->nullable();
         });
     }
@@ -105,18 +103,6 @@ class EloquentImageCastingTest extends DatabaseTestCase
         $this->assertSame(50, $width);
     }
 
-    public function test_url_attributes_are_resolved_over_http()
-    {
-        $upload = $this->fakeUpload();
-        $contents = file_get_contents($upload->getRealPath());
-
-        Http::fake(['example.com/*' => Http::response($contents)]);
-
-        $model = ImageModel::create(['logo' => 'https://example.com/logo.png']);
-
-        $this->assertSame($contents, $model->logo->toBytes());
-    }
-
     public function test_base64_attributes_round_trip()
     {
         $image = Image::fromUpload($this->fakeUpload());
@@ -176,7 +162,6 @@ class ImageModel extends Model
     {
         return [
             'avatar' => AsImage::toStorage('images', 'avatars'),
-            'logo' => AsImage::toUrl(),
             'thumbnail' => AsImage::toBase64(),
         ];
     }
