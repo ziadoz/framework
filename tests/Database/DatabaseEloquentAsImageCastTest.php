@@ -9,6 +9,7 @@ use Illuminate\Contracts\Filesystem\Filesystem as FilesystemContract;
 use Illuminate\Database\Eloquent\Casts\AsImage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Image\Image;
+use Illuminate\Image\ImageException;
 use Illuminate\Image\ImageManager;
 use Illuminate\Support\Facades\Facade;
 use InvalidArgumentException;
@@ -113,13 +114,13 @@ class DatabaseEloquentAsImageCastTest extends TestCase
         $this->fakeDisk(null)
             ->shouldReceive('get')
             ->once()
-            ->with('plain/star.png')
+            ->with('defaults/star.png')
             ->andReturn($this->pngBytes());
 
         $model = new AsImageTestModel;
-        $model->setRawAttributes(['plain' => 'plain/star.png']);
+        $model->setRawAttributes(['defaultDisk' => 'defaults/star.png']);
 
-        $this->assertSame($this->pngBytes(), $model->plain->toBytes());
+        $this->assertSame($this->pngBytes(), $model->defaultDisk->toBytes());
     }
 
     public function testToStorageStoresInTheConfiguredFolderOnTheDefaultDisk()
@@ -132,10 +133,10 @@ class DatabaseEloquentAsImageCastTest extends TestCase
 
         $model = new AsImageTestModel;
 
-        $model->foldered = new Image($this->pngBytes());
+        $model->folderOnly = new Image($this->pngBytes());
 
         $this->assertMatchesRegularExpression(
-            '#^nested/[A-Za-z0-9]{40}\.png$#', $model->getAttributes()['foldered']
+            '#^nested/[A-Za-z0-9]{40}\.png$#', $model->getAttributes()['folderOnly']
         );
     }
 
@@ -172,8 +173,8 @@ class DatabaseEloquentAsImageCastTest extends TestCase
         ));
 
         $model = new AsImageTestModel;
-        $model->setRawAttributes(['broken' => 'whatever']);
-        $model->broken;
+        $model->setRawAttributes(['unsupported' => 'whatever']);
+        $model->unsupported;
     }
 
     public function testSetWritesStringsVerbatim()
@@ -220,6 +221,21 @@ class DatabaseEloquentAsImageCastTest extends TestCase
         $this->assertMatchesRegularExpression(
             '#^avatars/[A-Za-z0-9]{40}\.png$#', $model->getAttributes()['avatar']
         );
+    }
+
+    public function testStorageCastThrowsWhenTheDiskWriteFails()
+    {
+        $this->fakeDisk('s3')
+            ->shouldReceive('put')
+            ->once()
+            ->andReturn(false);
+
+        $this->expectExceptionObject(new ImageException(
+            'Unable to store the image for the [avatar] attribute.'
+        ));
+
+        $model = new AsImageTestModel;
+        $model->avatar = new Image($this->pngBytes());
     }
 
     public function testReadingAnAttributeDoesNotRewriteItOnSave()
@@ -281,12 +297,12 @@ class AsImageTestModel extends Model
     {
         return [
             'avatar' => AsImage::storage('s3', 'avatars'),
+            'icon' => AsImage::class,
+            'defaultDisk' => AsImage::storage(),
+            'folderOnly' => AsImage::storage(folder: 'nested'),
             'thumbnail' => AsImage::base64(),
             'blob' => AsImage::bytes(),
-            'icon' => AsImage::class,
-            'plain' => AsImage::storage(),
-            'foldered' => AsImage::storage(folder: 'nested'),
-            'broken' => AsImage::class.':nonsense',
+            'unsupported' => AsImage::class.':nonsense',
         ];
     }
 }

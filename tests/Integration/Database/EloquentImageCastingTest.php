@@ -26,7 +26,7 @@ class EloquentImageCastingTest extends DatabaseTestCase
         });
     }
 
-    public function test_assigning_an_image_stores_it_and_persists_the_path()
+    public function testAssigningAnImageStoresItAndPersistsThePath()
     {
         Storage::fake('images');
 
@@ -41,7 +41,7 @@ class EloquentImageCastingTest extends DatabaseTestCase
         Storage::disk('images')->assertExists($path);
     }
 
-    public function test_stored_images_are_read_back_from_the_disk()
+    public function testStoredImagesAreReadBackFromTheDisk()
     {
         Storage::fake('images');
 
@@ -59,7 +59,7 @@ class EloquentImageCastingTest extends DatabaseTestCase
         $this->assertSame(100, $height);
     }
 
-    public function test_reading_an_attribute_does_not_store_a_second_file()
+    public function testReadingAnAttributeDoesNotStoreASecondFile()
     {
         Storage::fake('images');
 
@@ -80,7 +80,7 @@ class EloquentImageCastingTest extends DatabaseTestCase
         $this->assertSame($path, $fresh->fresh()->getRawOriginal('avatar'));
     }
 
-    public function test_transformed_images_are_stored_as_new_files()
+    public function testTransformedImagesAreStoredAsNewFiles()
     {
         Storage::fake('images');
 
@@ -103,7 +103,7 @@ class EloquentImageCastingTest extends DatabaseTestCase
         $this->assertSame(50, $width);
     }
 
-    public function test_base64_attributes_round_trip()
+    public function testBase64AttributesRoundTrip()
     {
         $image = Image::fromUpload($this->fakeUpload());
         $bytes = $image->toBytes();
@@ -114,7 +114,7 @@ class EloquentImageCastingTest extends DatabaseTestCase
         $this->assertSame($bytes, ImageModel::findOrFail($model->id)->thumbnail->toBytes());
     }
 
-    public function test_strings_are_written_verbatim()
+    public function testStringsAreWrittenVerbatim()
     {
         Storage::fake('images');
 
@@ -124,7 +124,7 @@ class EloquentImageCastingTest extends DatabaseTestCase
         $this->assertEmpty(Storage::disk('images')->allFiles());
     }
 
-    public function test_null_attributes_are_not_cast()
+    public function testNullAttributesAreNotCast()
     {
         $model = ImageModel::create(['avatar' => null]);
 
@@ -132,7 +132,7 @@ class EloquentImageCastingTest extends DatabaseTestCase
         $this->assertNull($model->toArray()['avatar']);
     }
 
-    public function test_to_array_returns_the_raw_value()
+    public function testToArrayReturnsTheRawValue()
     {
         Storage::fake('images');
 
