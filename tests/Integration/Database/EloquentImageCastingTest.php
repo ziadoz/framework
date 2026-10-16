@@ -161,8 +161,8 @@ class ImageModel extends Model
     public function casts(): array
     {
         return [
-            'avatar' => AsImage::toStorage('images', 'avatars'),
-            'thumbnail' => AsImage::toBase64(),
+            'avatar' => AsImage::storage('images', 'avatars'),
+            'thumbnail' => AsImage::base64(),
         ];
     }
 }

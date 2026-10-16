@@ -280,12 +280,12 @@ class AsImageTestModel extends Model
     public function casts(): array
     {
         return [
-            'avatar' => AsImage::toStorage('s3', 'avatars'),
-            'thumbnail' => AsImage::toBase64(),
-            'blob' => AsImage::toBytes(),
+            'avatar' => AsImage::storage('s3', 'avatars'),
+            'thumbnail' => AsImage::base64(),
+            'blob' => AsImage::bytes(),
             'icon' => AsImage::class,
-            'plain' => AsImage::toStorage(),
-            'foldered' => AsImage::toStorage(folder: 'nested'),
+            'plain' => AsImage::storage(),
+            'foldered' => AsImage::storage(folder: 'nested'),
             'broken' => AsImage::class.':nonsense',
         ];
     }

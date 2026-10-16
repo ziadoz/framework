@@ -116,7 +116,7 @@ class AsImage implements Castable
     /**
      * Store the image on a filesystem disk and persist its path.
      */
-    public static function toStorage(?string $disk = null, ?string $folder = null): string
+    public static function storage(?string $disk = null, ?string $folder = null): string
     {
         return static::class.':storage,'.$disk.','.$folder;
     }
@@ -124,7 +124,7 @@ class AsImage implements Castable
     /**
      * Store the image as a base64 encoded string.
      */
-    public static function toBase64(): string
+    public static function base64(): string
     {
         return static::class.':base64';
     }
@@ -132,7 +132,7 @@ class AsImage implements Castable
     /**
      * Store the image as raw bytes.
      */
-    public static function toBytes(): string
+    public static function bytes(): string
     {
         return static::class.':bytes';
     }
