@@ -1,0 +1,183 @@
+<?php
+
+namespace Illuminate\Tests\Integration\Database\EloquentImageCastingTest;
+
+use Illuminate\Database\Eloquent\Casts\AsImage;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Image\Image as ImageInstance;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Image;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Tests\Integration\Database\DatabaseTestCase;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
+
+#[RequiresPhpExtension('gd')]
+class EloquentImageCastingTest extends DatabaseTestCase
+{
+    /** {@inheritdoc} */
+    protected function afterRefreshingDatabase()
+    {
+        Schema::create('image_models', function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('avatar')->nullable();
+            $table->string('logo')->nullable();
+            $table->text('thumbnail')->nullable();
+        });
+    }
+
+    public function test_assigning_an_image_stores_it_and_persists_the_path()
+    {
+        Storage::fake('images');
+
+        $model = ImageModel::create([
+            'avatar' => Image::fromUpload($this->fakeUpload()),
+        ]);
+
+        $path = $model->getRawOriginal('avatar');
+
+        $this->assertMatchesRegularExpression('#^avatars/[A-Za-z0-9]{40}\.(png|jpg)$#', $path);
+
+        Storage::disk('images')->assertExists($path);
+    }
+
+    public function test_stored_images_are_read_back_from_the_disk()
+    {
+        Storage::fake('images');
+
+        $model = ImageModel::create([
+            'avatar' => Image::fromUpload($this->fakeUpload(200, 200)),
+        ]);
+
+        $image = ImageModel::findOrFail($model->id)->avatar;
+
+        $this->assertInstanceOf(ImageInstance::class, $image);
+
+        [$width, $height] = getimagesizefromstring($image->cover(100, 100)->toBytes());
+
+        $this->assertSame(100, $width);
+        $this->assertSame(100, $height);
+    }
+
+    public function test_reading_an_attribute_does_not_store_a_second_file()
+    {
+        Storage::fake('images');
+
+        $model = ImageModel::create([
+            'avatar' => Image::fromUpload($this->fakeUpload()),
+        ]);
+
+        $this->assertCount(1, Storage::disk('images')->allFiles());
+
+        $fresh = ImageModel::findOrFail($model->id);
+        $path = $fresh->getRawOriginal('avatar');
+
+        $this->assertInstanceOf(ImageInstance::class, $fresh->avatar);
+
+        $fresh->save();
+
+        $this->assertCount(1, Storage::disk('images')->allFiles());
+        $this->assertSame($path, $fresh->fresh()->getRawOriginal('avatar'));
+    }
+
+    public function test_transformed_images_are_stored_as_new_files()
+    {
+        Storage::fake('images');
+
+        $model = ImageModel::create([
+            'avatar' => Image::fromUpload($this->fakeUpload(200, 200)),
+        ]);
+
+        $original = $model->getRawOriginal('avatar');
+
+        $model->avatar = $model->avatar->cover(50, 50);
+        $model->save();
+
+        $this->assertNotSame($original, $model->getRawOriginal('avatar'));
+        $this->assertCount(2, Storage::disk('images')->allFiles());
+
+        [$width] = getimagesizefromstring(
+            Storage::disk('images')->get($model->getRawOriginal('avatar'))
+        );
+
+        $this->assertSame(50, $width);
+    }
+
+    public function test_url_attributes_are_resolved_over_http()
+    {
+        $upload = $this->fakeUpload();
+        $contents = file_get_contents($upload->getRealPath());
+
+        Http::fake(['example.com/*' => Http::response($contents)]);
+
+        $model = ImageModel::create(['logo' => 'https://example.com/logo.png']);
+
+        $this->assertSame($contents, $model->logo->toBytes());
+    }
+
+    public function test_base64_attributes_round_trip()
+    {
+        $image = Image::fromUpload($this->fakeUpload());
+        $bytes = $image->toBytes();
+
+        $model = ImageModel::create(['thumbnail' => $image]);
+
+        $this->assertSame(base64_encode($bytes), $model->getRawOriginal('thumbnail'));
+        $this->assertSame($bytes, ImageModel::findOrFail($model->id)->thumbnail->toBytes());
+    }
+
+    public function test_strings_are_written_verbatim()
+    {
+        Storage::fake('images');
+
+        $model = ImageModel::create(['avatar' => 'avatars/jane.webp']);
+
+        $this->assertSame('avatars/jane.webp', $model->getRawOriginal('avatar'));
+        $this->assertEmpty(Storage::disk('images')->allFiles());
+    }
+
+    public function test_null_attributes_are_not_cast()
+    {
+        $model = ImageModel::create(['avatar' => null]);
+
+        $this->assertNull($model->avatar);
+        $this->assertNull($model->toArray()['avatar']);
+    }
+
+    public function test_to_array_returns_the_raw_value()
+    {
+        Storage::fake('images');
+
+        $model = ImageModel::create([
+            'avatar' => Image::fromUpload($this->fakeUpload()),
+        ]);
+
+        $this->assertSame($model->getRawOriginal('avatar'), $model->toArray()['avatar']);
+    }
+
+    /**
+     * Get a fake uploaded image file.
+     */
+    protected function fakeUpload(int $width = 100, int $height = 100): UploadedFile
+    {
+        return UploadedFile::fake()->image('test.png', $width, $height);
+    }
+}
+
+class ImageModel extends Model
+{
+    protected $guarded = [];
+
+    public $timestamps = false;
+
+    public function casts(): array
+    {
+        return [
+            'avatar' => AsImage::toStorage('images', 'avatars'),
+            'logo' => AsImage::toUrl(),
+            'thumbnail' => AsImage::toBase64(),
+        ];
+    }
+}
