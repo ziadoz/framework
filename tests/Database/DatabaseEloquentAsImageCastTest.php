@@ -55,14 +55,14 @@ class DatabaseEloquentAsImageCastTest extends TestCase
     {
         $model = new AsImageTestModel;
         $model->setRawAttributes([
-            'avatar' => null,
-            'thumbnail' => null,
-            'blob' => null,
+            'img_disk_folder' => null,
+            'img_base64' => null,
+            'img_bytes' => null,
         ]);
 
-        $this->assertNull($model->avatar);
-        $this->assertNull($model->thumbnail);
-        $this->assertNull($model->blob);
+        $this->assertNull($model->img_disk_folder);
+        $this->assertNull($model->img_base64);
+        $this->assertNull($model->img_bytes);
     }
 
     public function testGetResolvesAnImageForEveryFormat()
@@ -71,14 +71,14 @@ class DatabaseEloquentAsImageCastTest extends TestCase
 
         $model = new AsImageTestModel;
         $model->setRawAttributes([
-            'avatar' => 'avatars/jane.webp',
-            'thumbnail' => base64_encode($this->pngBytes()),
-            'blob' => $this->pngBytes(),
+            'img_disk_folder' => 'avatars/jane.webp',
+            'img_base64' => base64_encode($this->pngBytes()),
+            'img_bytes' => $this->pngBytes(),
         ]);
 
-        $this->assertInstanceOf(Image::class, $model->avatar);
-        $this->assertInstanceOf(Image::class, $model->thumbnail);
-        $this->assertInstanceOf(Image::class, $model->blob);
+        $this->assertInstanceOf(Image::class, $model->img_disk_folder);
+        $this->assertInstanceOf(Image::class, $model->img_base64);
+        $this->assertInstanceOf(Image::class, $model->img_bytes);
     }
 
     public function testGetResolvesStorageImagesOnTheConfiguredDisk()
@@ -90,9 +90,9 @@ class DatabaseEloquentAsImageCastTest extends TestCase
             ->andReturn($this->pngBytes());
 
         $model = new AsImageTestModel;
-        $model->setRawAttributes(['avatar' => 'avatars/jane.webp']);
+        $model->setRawAttributes(['img_disk_folder' => 'avatars/jane.webp']);
 
-        $this->assertSame($this->pngBytes(), $model->avatar->toBytes());
+        $this->assertSame($this->pngBytes(), $model->img_disk_folder->toBytes());
     }
 
     public function testBareCastResolvesStorageImagesOnTheDefaultDisk()
@@ -104,9 +104,9 @@ class DatabaseEloquentAsImageCastTest extends TestCase
             ->andReturn($this->pngBytes());
 
         $model = new AsImageTestModel;
-        $model->setRawAttributes(['icon' => 'icons/star.png']);
+        $model->setRawAttributes(['img_bare' => 'icons/star.png']);
 
-        $this->assertSame($this->pngBytes(), $model->icon->toBytes());
+        $this->assertSame($this->pngBytes(), $model->img_bare->toBytes());
     }
 
     public function testToStorageWithoutArgumentsUsesTheDefaultDisk()
@@ -118,9 +118,9 @@ class DatabaseEloquentAsImageCastTest extends TestCase
             ->andReturn($this->pngBytes());
 
         $model = new AsImageTestModel;
-        $model->setRawAttributes(['defaultDisk' => 'defaults/star.png']);
+        $model->setRawAttributes(['img_disk_default' => 'defaults/star.png']);
 
-        $this->assertSame($this->pngBytes(), $model->defaultDisk->toBytes());
+        $this->assertSame($this->pngBytes(), $model->img_disk_default->toBytes());
     }
 
     public function testToStorageStoresInTheConfiguredFolderOnTheDefaultDisk()
@@ -133,10 +133,10 @@ class DatabaseEloquentAsImageCastTest extends TestCase
 
         $model = new AsImageTestModel;
 
-        $model->folderOnly = new Image($this->pngBytes());
+        $model->img_folder = new Image($this->pngBytes());
 
         $this->assertMatchesRegularExpression(
-            '#^nested/[A-Za-z0-9]{40}\.png$#', $model->getAttributes()['folderOnly']
+            '#^nested/[A-Za-z0-9]{40}\.png$#', $model->getAttributes()['img_folder']
         );
     }
 
@@ -144,12 +144,12 @@ class DatabaseEloquentAsImageCastTest extends TestCase
     {
         $model = new AsImageTestModel;
         $model->setRawAttributes([
-            'thumbnail' => base64_encode($this->pngBytes()),
-            'blob' => $this->pngBytes(),
+            'img_base64' => base64_encode($this->pngBytes()),
+            'img_bytes' => $this->pngBytes(),
         ]);
 
-        $this->assertSame($this->pngBytes(), $model->thumbnail->toBytes());
-        $this->assertSame($this->pngBytes(), $model->blob->toBytes());
+        $this->assertSame($this->pngBytes(), $model->img_base64->toBytes());
+        $this->assertSame($this->pngBytes(), $model->img_bytes->toBytes());
     }
 
     public function testStorageAttributesDoNotFollowUrls()
@@ -161,49 +161,49 @@ class DatabaseEloquentAsImageCastTest extends TestCase
             ->andReturn($this->pngBytes());
 
         $model = new AsImageTestModel;
-        $model->setRawAttributes(['avatar' => 'https://example.com/logo.png']);
+        $model->setRawAttributes(['img_disk_folder' => 'https://example.com/logo.png']);
 
-        $this->assertSame($this->pngBytes(), $model->avatar->toBytes());
+        $this->assertSame($this->pngBytes(), $model->img_disk_folder->toBytes());
     }
 
     public function testCastThrowsOnAnUnsupportedFormat()
     {
         $this->expectExceptionObject(new InvalidArgumentException(
-            'Unsupported image cast format [nonsense]. Allowed formats are: storage, base64, bytes.'
+            'Unsupported image cast format [foobar]. Allowed formats are: storage, base64, bytes.'
         ));
 
         $model = new AsImageTestModel;
-        $model->setRawAttributes(['unsupported' => 'whatever']);
-        $model->unsupported;
+        $model->setRawAttributes(['img_invalid' => 'whatever']);
+        $model->img_invalid;
     }
 
     public function testSetWritesStringsVerbatim()
     {
         $model = new AsImageTestModel;
 
-        $model->avatar = 'avatars/jane.webp';
+        $model->img_disk_folder = 'avatars/jane.webp';
 
-        $this->assertSame('avatars/jane.webp', $model->getAttributes()['avatar']);
+        $this->assertSame('avatars/jane.webp', $model->getAttributes()['img_disk_folder']);
     }
 
     public function testSetWritesNullVerbatim()
     {
         $model = new AsImageTestModel;
 
-        $model->avatar = null;
+        $model->img_disk_folder = null;
 
-        $this->assertNull($model->getAttributes()['avatar']);
+        $this->assertNull($model->getAttributes()['img_disk_folder']);
     }
 
     public function testSetEncodesImagesForBase64AndBytes()
     {
         $model = new AsImageTestModel;
 
-        $model->thumbnail = new Image($this->pngBytes());
-        $model->blob = new Image($this->pngBytes());
+        $model->img_base64 = new Image($this->pngBytes());
+        $model->img_bytes = new Image($this->pngBytes());
 
-        $this->assertSame(base64_encode($this->pngBytes()), $model->getAttributes()['thumbnail']);
-        $this->assertSame($this->pngBytes(), $model->getAttributes()['blob']);
+        $this->assertSame(base64_encode($this->pngBytes()), $model->getAttributes()['img_base64']);
+        $this->assertSame($this->pngBytes(), $model->getAttributes()['img_bytes']);
     }
 
     public function testSetStoresImagesAndPersistsThePath()
@@ -216,10 +216,10 @@ class DatabaseEloquentAsImageCastTest extends TestCase
 
         $model = new AsImageTestModel;
 
-        $model->avatar = new Image($this->pngBytes());
+        $model->img_disk_folder = new Image($this->pngBytes());
 
         $this->assertMatchesRegularExpression(
-            '#^avatars/[A-Za-z0-9]{40}\.png$#', $model->getAttributes()['avatar']
+            '#^avatars/[A-Za-z0-9]{40}\.png$#', $model->getAttributes()['img_disk_folder']
         );
     }
 
@@ -231,11 +231,11 @@ class DatabaseEloquentAsImageCastTest extends TestCase
             ->andReturn(false);
 
         $this->expectExceptionObject(new ImageException(
-            'Unable to store the image for the [avatar] attribute.'
+            'Unable to store the image for the [img_disk_folder] attribute.'
         ));
 
         $model = new AsImageTestModel;
-        $model->avatar = new Image($this->pngBytes());
+        $model->img_disk_folder = new Image($this->pngBytes());
     }
 
     public function testReadingAnAttributeDoesNotRewriteItOnSave()
@@ -244,20 +244,20 @@ class DatabaseEloquentAsImageCastTest extends TestCase
         $this->fakeDisk('s3')->shouldNotReceive('put');
 
         $model = new AsImageTestModel;
-        $model->setRawAttributes(['avatar' => 'avatars/jane.webp']);
+        $model->setRawAttributes(['img_disk_folder' => 'avatars/jane.webp']);
 
-        $this->assertInstanceOf(Image::class, $model->avatar);
+        $this->assertInstanceOf(Image::class, $model->img_disk_folder);
 
         // getAttributes() flushes cached class casts back through set()...
-        $this->assertSame('avatars/jane.webp', $model->getAttributes()['avatar']);
+        $this->assertSame('avatars/jane.webp', $model->getAttributes()['img_disk_folder']);
     }
 
     public function testToArrayReturnsTheRawValue()
     {
         $model = new AsImageTestModel;
-        $model->setRawAttributes(['avatar' => 'avatars/jane.webp']);
+        $model->setRawAttributes(['img_disk_folder' => 'avatars/jane.webp']);
 
-        $this->assertSame('avatars/jane.webp', $model->toArray()['avatar']);
+        $this->assertSame('avatars/jane.webp', $model->toArray()['img_disk_folder']);
     }
 
     /**
@@ -296,13 +296,13 @@ class AsImageTestModel extends Model
     public function casts(): array
     {
         return [
-            'avatar' => AsImage::storage('s3', 'avatars'),
-            'icon' => AsImage::class,
-            'defaultDisk' => AsImage::storage(),
-            'folderOnly' => AsImage::storage(folder: 'nested'),
-            'thumbnail' => AsImage::base64(),
-            'blob' => AsImage::bytes(),
-            'unsupported' => AsImage::class.':nonsense',
+            'img_bare' => AsImage::class,
+            'img_disk_default' => AsImage::storage(),
+            'img_folder' => AsImage::storage(folder: 'nested'),
+            'img_disk_folder' => AsImage::storage('s3', 'avatars'),
+            'img_base64' => AsImage::base64(),
+            'img_bytes' => AsImage::bytes(),
+            'img_invalid' => AsImage::class.':foobar',
         ];
     }
 }
