@@ -46,10 +46,6 @@ class AsImage implements Castable
 
             /**
              * Create a new caster instance.
-             *
-             * @param  array{0?: string, 1?: string, 2?: string}  $arguments
-             *
-             * @throws \InvalidArgumentException
              */
             public function __construct(array $arguments)
             {
