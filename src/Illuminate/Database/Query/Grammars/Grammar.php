@@ -113,7 +113,7 @@ class Grammar extends BaseGrammar
             if (isset($query->$component)) {
                 $method = 'compile'.ucfirst($component);
 
-                $sql[$component] = $this->$method($query, $query->$component);
+                $sql[$component] = $this->$method($query, $this->qualifyComponent($query, $component, $query->$component));
             }
         }
 
@@ -165,7 +165,7 @@ class Grammar extends BaseGrammar
             $select = 'select ';
         }
 
-        return $select.$this->columnize($this->qualifyColumns($query, $columns));
+        return $select.$this->columnize($columns);
     }
 
     /**
@@ -284,6 +284,14 @@ class Grammar extends BaseGrammar
             if (isset($where[$key])) {
                 $where[$key] = $this->qualifyColumn($query, $where[$key]);
             }
+        }
+
+        if (isset($where['columns'])) {
+            $where['columns'] = $this->qualifyColumns($query, $where['columns']);
+        }
+
+        if ($where['type'] === 'betweenColumns') {
+            $where['values'] = $this->qualifyColumns($query, $where['values']);
         }
 
         return $where;
@@ -915,7 +923,7 @@ class Grammar extends BaseGrammar
      */
     protected function compileGroups(Builder $query, $groups)
     {
-        return 'group by '.$this->columnize($this->qualifyColumns($query, $groups));
+        return 'group by '.$this->columnize($groups);
     }
 
     /**
@@ -926,8 +934,8 @@ class Grammar extends BaseGrammar
      */
     protected function compileHavings(Builder $query)
     {
-        return 'having '.$this->removeLeadingBoolean((new Collection($query->havings))->map(function ($having) {
-            return $having['boolean'].' '.$this->compileHaving($having);
+        return 'having '.$this->removeLeadingBoolean((new Collection($query->havings))->map(function ($having) use ($query) {
+            return $having['boolean'].' '.$this->compileHaving($this->qualifyWhere($query, $having));
         })->implode(' '));
     }
 
@@ -1077,6 +1085,10 @@ class Grammar extends BaseGrammar
     protected function compileOrdersToArray(Builder $query, $orders)
     {
         return array_map(function ($order) use ($query) {
+            if (isset($order['column'])) {
+                $order['column'] = $this->qualifyColumn($query, $order['column']);
+            }
+
             if (isset($order['sql']) && $order['sql'] instanceof Expression) {
                 return $order['sql']->getValue($query->getGrammar());
             }
@@ -1085,8 +1097,25 @@ class Grammar extends BaseGrammar
                 return $this->compileInOrderOf($order);
             }
 
-            return $order['sql'] ?? $this->wrap($this->qualifyColumn($query, $order['column'])).' '.$order['direction'];
+            return $order['sql'] ?? $this->wrap($order['column']).' '.$order['direction'];
         }, $orders);
+    }
+
+    /**
+     * Qualify any qualified column expressions within the given select component.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  string  $component
+     * @param  mixed  $value
+     * @return mixed
+     */
+    protected function qualifyComponent(Builder $query, $component, $value)
+    {
+        return match ($component) {
+            'aggregate' => array_merge($value, ['columns' => $this->qualifyColumns($query, $value['columns'])]),
+            'columns', 'groups' => $this->qualifyColumns($query, $value),
+            default => $value,
+        };
     }
 
     /**

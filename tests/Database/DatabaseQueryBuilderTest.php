@@ -4080,6 +4080,47 @@ class DatabaseQueryBuilderTest extends TestCase
         $this->assertEquals([true, 'admin', 'Taylor'], $builder->getBindings());
     }
 
+    public function testQualifiedColumnsInMultiColumnWheres()
+    {
+        $builder = $this->getBuilder();
+        $builder->select('*')->from('users')
+            ->whereBetweenColumns(new Qualified('score'), [new Qualified('min'), new Qualified('max')])
+            ->whereValueBetween(10, [new Qualified('min'), new Qualified('max')])
+            ->whereRowValues([new Qualified('first_name'), new Qualified('last_name')], '=', ['Taylor', 'Otwell']);
+        $this->assertSame('select * from "users" where "users"."score" between "users"."min" and "users"."max" and ? between "users"."min" and "users"."max" and ("users"."first_name", "users"."last_name") = (?, ?)', $builder->toSql());
+
+        $builder = $this->getMySqlBuilderWithProcessor();
+        $builder->select('*')->from('posts')->whereFullText([new Qualified('title'), new Qualified('body')], 'Laravel');
+        $this->assertSame('select * from `posts` where match (`posts`.`title`, `posts`.`body`) against (? in natural language mode)', $builder->toSql());
+    }
+
+    public function testQualifiedColumnsInAggregatesHavingsAndOrders()
+    {
+        $builder = $this->getBuilder();
+        $builder->from('users');
+        $builder->aggregate = ['function' => 'count', 'columns' => [new Qualified('id')]];
+        $this->assertSame('select count("users"."id") as "aggregate" from "users"', $builder->toSql());
+
+        $builder = $this->getBuilder();
+        $builder->select('*')->from('users')->having(new Qualified('votes'), '>', 1)->havingNull(new Qualified('deleted_at'));
+        $this->assertSame('select * from "users" having "users"."votes" > ? and "users"."deleted_at" is null', $builder->toSql());
+
+        $builder = $this->getBuilder();
+        $builder->select('*')->from('users')->inOrderOf(new Qualified('status'), ['active', 'pending']);
+        $this->assertSame('select * from "users" order by case when "users"."status" = ? then 0 when "users"."status" = ? then 1 else 2 end', $builder->toSql());
+    }
+
+    public function testQualifiedColumnsInSelectsAcrossGrammars()
+    {
+        $builder = $this->getPostgresBuilder();
+        $builder->select(new Qualified('id'))->from('users')->groupBy(new Qualified('id'));
+        $this->assertSame('select "users"."id" from "users" group by "users"."id"', $builder->toSql());
+
+        $builder = $this->getSqlServerBuilder();
+        $builder->select(new Qualified('id'))->from('users')->groupBy(new Qualified('id'));
+        $this->assertSame('select [users].[id] from [users] group by [users].[id]', $builder->toSql());
+    }
+
     public function testQualifiedColumnsUseTheTableAlias()
     {
         $builder = $this->getBuilder();
