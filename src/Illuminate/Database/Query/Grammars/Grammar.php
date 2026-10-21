@@ -8,6 +8,7 @@ use Illuminate\Database\Grammar as BaseGrammar;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Database\Query\JoinLateralClause;
+use Illuminate\Database\Query\Qualified;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use RuntimeException;
@@ -164,7 +165,7 @@ class Grammar extends BaseGrammar
             $select = 'select ';
         }
 
-        return $select.$this->columnize($columns);
+        return $select.$this->columnize($this->qualifyColumns($query, $columns));
     }
 
     /**
@@ -265,8 +266,27 @@ class Grammar extends BaseGrammar
     protected function compileWheresToArray($query)
     {
         return (new Collection($query->wheres))
+            ->map(fn ($where) => $this->qualifyWhere($query, $where))
             ->map(fn ($where) => $where['boolean'].' '.$this->{"where{$where['type']}"}($query, $where))
             ->all();
+    }
+
+    /**
+     * Qualify any qualified column expressions within the given where clause.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  array  $where
+     * @return array
+     */
+    protected function qualifyWhere(Builder $query, $where)
+    {
+        foreach (['column', 'first', 'second'] as $key) {
+            if (isset($where[$key])) {
+                $where[$key] = $this->qualifyColumn($query, $where[$key]);
+            }
+        }
+
+        return $where;
     }
 
     /**
@@ -895,7 +915,7 @@ class Grammar extends BaseGrammar
      */
     protected function compileGroups(Builder $query, $groups)
     {
-        return 'group by '.$this->columnize($groups);
+        return 'group by '.$this->columnize($this->qualifyColumns($query, $groups));
     }
 
     /**
@@ -1065,8 +1085,42 @@ class Grammar extends BaseGrammar
                 return $this->compileInOrderOf($order);
             }
 
-            return $order['sql'] ?? $this->wrap($order['column']).' '.$order['direction'];
+            return $order['sql'] ?? $this->wrap($this->qualifyColumn($query, $order['column'])).' '.$order['direction'];
         }, $orders);
+    }
+
+    /**
+     * Qualify any qualified column expressions in the given array.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  array  $columns
+     * @return array
+     */
+    protected function qualifyColumns(Builder $query, $columns)
+    {
+        return array_map(fn ($column) => $this->qualifyColumn($query, $column), $columns);
+    }
+
+    /**
+     * Qualify the given column by the query's table if it is a qualified column expression.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  mixed  $column
+     * @return mixed
+     */
+    protected function qualifyColumn(Builder $query, $column)
+    {
+        $table = $query instanceof JoinClause ? $query->table : $query->from;
+
+        if (! $column instanceof Qualified || ! is_string($table)) {
+            return $column;
+        }
+
+        if (stripos($table, ' as ') !== false) {
+            $table = preg_split('/\s+as\s+/i', $table)[1];
+        }
+
+        return $column->qualifyUsing($table);
     }
 
     /**

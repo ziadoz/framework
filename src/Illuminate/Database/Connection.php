@@ -17,6 +17,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
 use Illuminate\Database\Query\Processors\Processor;
+use Illuminate\Database\Query\Qualified;
 use Illuminate\Database\Schema\Builder as SchemaBuilder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\InteractsWithTime;
@@ -1169,6 +1170,18 @@ class Connection implements ConnectionInterface
     public function raw($value)
     {
         return new Expression($value);
+    }
+
+    /**
+     * Get a new qualified column expression.
+     *
+     * @param  string  $column
+     * @param  string|null  $table
+     * @return \Illuminate\Database\Query\Qualified
+     */
+    public function qualify($column, $table = null)
+    {
+        return new Qualified($column, $table);
     }
 
     /**

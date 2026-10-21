@@ -22,6 +22,7 @@ use Illuminate\Database\Query\JoinClause;
 use Illuminate\Database\Query\Processors\MySqlProcessor;
 use Illuminate\Database\Query\Processors\PostgresProcessor;
 use Illuminate\Database\Query\Processors\Processor;
+use Illuminate\Database\Query\Qualified;
 use Illuminate\Database\RecordNotFoundException;
 use Illuminate\Pagination\AbstractPaginator as Paginator;
 use Illuminate\Pagination\Cursor;
@@ -4063,6 +4064,58 @@ class DatabaseQueryBuilderTest extends TestCase
         $builder = $this->getBuilder();
         $builder->select(new Raw('substr(foo, 6)'))->from('users');
         $this->assertSame('select substr(foo, 6) from "users"', $builder->toSql());
+    }
+
+    public function testQualifiedColumnsAreQualifiedByTheQueryTable()
+    {
+        $builder = $this->getBuilder();
+        $builder->select(new Qualified('id'))->from('users')
+            ->where(new Qualified('active'), true)
+            ->whereIn(new Qualified('role'), ['admin'])
+            ->whereNull(new Qualified('deleted_at'))
+            ->where(fn ($query) => $query->where(new Qualified('name'), 'Taylor'))
+            ->groupBy(new Qualified('team_id'))
+            ->orderBy(new Qualified('created_at'));
+        $this->assertSame('select "users"."id" from "users" where "users"."active" = ? and "users"."role" in (?) and "users"."deleted_at" is null and ("users"."name" = ?) group by "users"."team_id" order by "users"."created_at" asc', $builder->toSql());
+        $this->assertEquals([true, 'admin', 'Taylor'], $builder->getBindings());
+    }
+
+    public function testQualifiedColumnsUseTheTableAlias()
+    {
+        $builder = $this->getBuilder();
+        $builder->select('*')->from('users as u')->where(new Qualified('active'), true);
+        $this->assertSame('select * from "users" as "u" where "u"."active" = ?', $builder->toSql());
+    }
+
+    public function testQualifiedColumnsWithExplicitTable()
+    {
+        $builder = $this->getBuilder();
+        $builder->select('*')->from('users')->where(new Qualified('active', 'teams'), true)->where(new Qualified('posts.published'), true);
+        $this->assertSame('select * from "users" where "teams"."active" = ? and "posts"."published" = ?', $builder->toSql());
+    }
+
+    public function testQualifiedColumnsInJoinsAndSubqueries()
+    {
+        $builder = $this->getBuilder();
+        $builder->select('*')->from('users')
+            ->join('posts', fn ($join) => $join->on(new Qualified('user_id'), '=', 'users.id')->where(new Qualified('published'), true))
+            ->whereExists(fn ($query) => $query->from('comments')->whereColumn(new Qualified('user_id'), 'users.id'))
+            ->where(new Qualified('active'), true);
+        $this->assertSame('select * from "users" inner join "posts" on "posts"."user_id" = "users"."id" and "posts"."published" = ? where exists (select * from "comments" where "comments"."user_id" = "users"."id") and "users"."active" = ?', $builder->toSql());
+    }
+
+    public function testQualifiedColumnsUseTheTablePrefix()
+    {
+        $builder = $this->getBuilder(prefix: 'prefix_');
+        $builder->select('*')->from('users')->where(new Qualified('active'), true);
+        $this->assertSame('select * from "prefix_users" where "prefix_users"."active" = ?', $builder->toSql());
+    }
+
+    public function testQualifiedColumnsAreNotQualifiedWithoutATable()
+    {
+        $builder = $this->getBuilder();
+        $builder->fromSub(fn ($query) => $query->from('users'), 'u')->where(new Qualified('active'), true);
+        $this->assertSame('select * from (select * from "users") as "u" where "active" = ?', $builder->toSql());
     }
 
     public function testFindReturnsFirstResultByID()

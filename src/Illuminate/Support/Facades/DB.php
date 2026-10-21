@@ -64,6 +64,7 @@ use Illuminate\Database\Console\WipeCommand;
  * @method static \Illuminate\Database\Connection beforeExecuting(\Closure $callback)
  * @method static void listen(\Closure $callback)
  * @method static \Illuminate\Contracts\Database\Query\Expression raw(mixed|int|float $value)
+ * @method static \Illuminate\Database\Query\Qualified qualify(string $column, string|null $table = null)
  * @method static string escape(string|float|int|bool|null $value, bool $binary = false)
  * @method static bool hasModifiedRecords()
  * @method static void recordsHaveBeenModified(bool $value = true)

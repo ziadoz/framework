@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Database\Query\Qualified;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -224,6 +225,21 @@ class DatabaseEloquentIntegrationTest extends TestCase
     /**
      * Tests...
      */
+    public function testQualifiedColumnsAvoidAmbiguityWhenJoining()
+    {
+        EloquentTestUser::create(['id' => 1, 'email' => 'taylorotwell@gmail.com']);
+        EloquentTestUser::create(['id' => 2, 'email' => 'abigailotwell@gmail.com']);
+        EloquentTestPost::create(['id' => 2, 'user_id' => 1, 'name' => 'First Post']);
+
+        $query = EloquentTestUser::query()
+            ->select(new Qualified('email'))
+            ->join('posts', 'posts.user_id', '=', 'users.id')
+            ->where(DB::connection()->qualify('id'), 1);
+
+        $this->assertSame('select "users"."email" from "users" inner join "posts" on "posts"."user_id" = "users"."id" where "users"."id" = ?', $query->toSql());
+        $this->assertSame(['taylorotwell@gmail.com'], $query->pluck('email')->all());
+    }
+
     public function testBasicModelRetrieval()
     {
         EloquentTestUser::insert([['id' => 1, 'email' => 'taylorotwell@gmail.com'], ['id' => 2, 'email' => 'abigailotwell@gmail.com']]);
