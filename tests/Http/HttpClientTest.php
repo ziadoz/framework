@@ -2,6 +2,7 @@
 
 namespace Illuminate\Tests\Http;
 
+use Carbon\CarbonInterval;
 use Exception;
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\ConnectException;
@@ -2499,6 +2500,86 @@ class HttpClientTest extends TestCase
         $factory->assertSentCount(2);
         $events->assertDispatchedTimes(RequestSending::class, 2);
         $events->assertDispatchedTimes(ResponseReceived::class, 2);
+    }
+
+    public function testWhenRequestTakesLongerThan()
+    {
+        $events = new Dispatcher;
+
+        $factory = new Factory($events);
+
+        $called = [];
+
+        $factory->whenRequestTakesLongerThan(1000, function ($request, $response, $duration) use (&$called) {
+            $called[] = [$request, $response, $duration];
+        });
+
+        $psrRequest = new GuzzleRequest('GET', 'http://foo.com/get');
+        $request = new Request($psrRequest);
+
+        $response = new Response(new Psr7Response);
+        $response->transferStats = new TransferStats($psrRequest, null, 0.5);
+
+        $events->dispatch(new ResponseReceived($request, $response));
+
+        $this->assertEmpty($called);
+
+        $response = new Response(new Psr7Response);
+        $response->transferStats = new TransferStats($psrRequest, null, 1.5);
+
+        $events->dispatch(new ResponseReceived($request, $response));
+
+        $this->assertCount(1, $called);
+        $this->assertSame([$request, $response, 1500.0], $called[0]);
+    }
+
+    public function testWhenRequestTakesLongerThanAcceptsCarbonInterval()
+    {
+        $events = new Dispatcher;
+
+        $factory = new Factory($events);
+
+        $called = false;
+
+        $factory->whenRequestTakesLongerThan(CarbonInterval::seconds(2), function () use (&$called) {
+            $called = true;
+        });
+
+        $psrRequest = new GuzzleRequest('GET', 'http://foo.com/get');
+
+        $response = new Response(new Psr7Response);
+        $response->transferStats = new TransferStats($psrRequest, null, 1.5);
+
+        $events->dispatch(new ResponseReceived(new Request($psrRequest), $response));
+
+        $this->assertFalse($called);
+
+        $response = new Response(new Psr7Response);
+        $response->transferStats = new TransferStats($psrRequest, null, 2.5);
+
+        $events->dispatch(new ResponseReceived(new Request($psrRequest), $response));
+
+        $this->assertTrue($called);
+    }
+
+    public function testWhenRequestTakesLongerThanIsNotInvokedForFakedRequests()
+    {
+        $factory = new Factory(new Dispatcher);
+
+        $called = false;
+
+        $factory->whenRequestTakesLongerThan(0, function () use (&$called) {
+            $called = true;
+        });
+
+        $factory->fake([
+            'foo.com/*' => $factory::response(['ok']),
+        ]);
+
+        $factory->get('http://foo.com/get');
+
+        $factory->assertSentCount(1);
+        $this->assertFalse($called);
     }
 
     public function testTheTransferStatsAreCalledSafelyWhenFakingTheRequest()
