@@ -2502,11 +2502,23 @@ class HttpClientTest extends TestCase
         $events->assertDispatchedTimes(ResponseReceived::class, 2);
     }
 
+    public function testTransferTimeCanBeFaked()
+    {
+        $this->factory->fake(['foo.com/*' => $this->factory::response(['ok'])]);
+
+        $response = $this->factory->withOptions(['transfer_time' => 1.5])->get('http://foo.com/get');
+
+        $this->assertSame(1.5, $response->transferStats->getTransferTime());
+
+        $response = $this->factory->get('http://foo.com/get');
+
+        $this->assertNull($response->transferStats->getTransferTime());
+    }
+
     public function testWhenRequestTakesLongerThan()
     {
-        $events = new Dispatcher;
-
-        $factory = new Factory($events);
+        $factory = new Factory(new Dispatcher);
+        $factory->fake(['foo.com/*' => $factory::response(['ok'])]);
 
         $called = [];
 
@@ -2514,30 +2526,22 @@ class HttpClientTest extends TestCase
             $called[] = [$request, $response, $duration];
         });
 
-        $psrRequest = new GuzzleRequest('GET', 'http://foo.com/get');
-        $request = new Request($psrRequest);
-
-        $response = new Response(new Psr7Response);
-        $response->transferStats = new TransferStats($psrRequest, null, 0.5);
-
-        $events->dispatch(new ResponseReceived($request, $response));
+        $factory->withOptions(['transfer_time' => 0.5])->get('http://foo.com/fast');
 
         $this->assertEmpty($called);
 
-        $response = new Response(new Psr7Response);
-        $response->transferStats = new TransferStats($psrRequest, null, 1.5);
-
-        $events->dispatch(new ResponseReceived($request, $response));
+        $response = $factory->withOptions(['transfer_time' => 1.5])->get('http://foo.com/slow');
 
         $this->assertCount(1, $called);
-        $this->assertSame([$request, $response, 1500.0], $called[0]);
+        $this->assertSame('http://foo.com/slow', $called[0][0]->url());
+        $this->assertSame($response, $called[0][1]);
+        $this->assertSame(1500.0, $called[0][2]);
     }
 
     public function testWhenRequestTakesLongerThanAcceptsCarbonInterval()
     {
-        $events = new Dispatcher;
-
-        $factory = new Factory($events);
+        $factory = new Factory(new Dispatcher);
+        $factory->fake(['foo.com/*' => $factory::response(['ok'])]);
 
         $called = false;
 
@@ -2545,36 +2549,63 @@ class HttpClientTest extends TestCase
             $called = true;
         });
 
-        $psrRequest = new GuzzleRequest('GET', 'http://foo.com/get');
-
-        $response = new Response(new Psr7Response);
-        $response->transferStats = new TransferStats($psrRequest, null, 1.5);
-
-        $events->dispatch(new ResponseReceived(new Request($psrRequest), $response));
+        $factory->withOptions(['transfer_time' => 1.5])->get('http://foo.com/get');
 
         $this->assertFalse($called);
 
-        $response = new Response(new Psr7Response);
-        $response->transferStats = new TransferStats($psrRequest, null, 2.5);
-
-        $events->dispatch(new ResponseReceived(new Request($psrRequest), $response));
+        $factory->withOptions(['transfer_time' => 2.5])->get('http://foo.com/get');
 
         $this->assertTrue($called);
     }
 
-    public function testWhenRequestTakesLongerThanIsNotInvokedForFakedRequests()
+    public function testWhenRequestTakesLongerThanIsInvokedForEveryRetry()
     {
         $factory = new Factory(new Dispatcher);
+        $factory->fake(['foo.com/*' => $factory::response(['error'], 500)]);
+
+        $called = 0;
+
+        $factory->whenRequestTakesLongerThan(1000, function () use (&$called) {
+            $called++;
+        });
+
+        $factory->globalOptions(['transfer_time' => 1.5]);
+
+        $factory->retry(2, 0, null, false)->get('http://foo.com/get');
+
+        $factory->assertSentCount(2);
+        $this->assertSame(2, $called);
+    }
+
+    public function testWhenRequestTakesLongerThanWithPooledRequests()
+    {
+        $factory = new Factory(new Dispatcher);
+        $factory->fake(['foo.com/*' => $factory::response(['ok'])]);
+
+        $called = [];
+
+        $factory->whenRequestTakesLongerThan(1000, function ($request) use (&$called) {
+            $called[] = $request->url();
+        });
+
+        $factory->pool(fn (Pool $pool) => [
+            $pool->withOptions(['transfer_time' => 3.0])->get('http://foo.com/slow'),
+            $pool->withOptions(['transfer_time' => 0.1])->get('http://foo.com/fast'),
+        ]);
+
+        $this->assertSame(['http://foo.com/slow'], $called);
+    }
+
+    public function testWhenRequestTakesLongerThanIsNotInvokedWithoutATransferTime()
+    {
+        $factory = new Factory(new Dispatcher);
+        $factory->fake(['foo.com/*' => $factory::response(['ok'])]);
 
         $called = false;
 
         $factory->whenRequestTakesLongerThan(0, function () use (&$called) {
             $called = true;
         });
-
-        $factory->fake([
-            'foo.com/*' => $factory::response(['ok']),
-        ]);
 
         $factory->get('http://foo.com/get');
 

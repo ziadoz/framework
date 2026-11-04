@@ -198,9 +198,15 @@ class Factory
             : $threshold;
 
         $this->dispatcher?->listen(ResponseReceived::class, function ($event) use ($threshold, $handler) {
-            $duration = $event->response->transferStats?->getTransferTime();
+            $transferTime = $event->response->transferStats?->getTransferTime();
 
-            if (! is_null($duration) && ($duration = round($duration * 1000, 2)) > $threshold) {
+            if (is_null($transferTime)) {
+                return;
+            }
+
+            $duration = round($transferTime * 1000, 2);
+
+            if ($duration > $threshold) {
                 $handler($event->request, $event->response, $duration);
             }
         });
@@ -390,6 +396,7 @@ class Factory
                     $options['on_stats'](new TransferStats(
                         $request->toPsrRequest(),
                         $response->wait(),
+                        $options['transfer_time'] ?? null,
                     ));
                 }
 
