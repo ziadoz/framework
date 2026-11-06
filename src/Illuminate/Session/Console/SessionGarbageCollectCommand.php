@@ -28,7 +28,7 @@ class SessionGarbageCollectCommand extends Command
     /**
      * Execute the console command.
      *
-     * @return void
+     * @return int
      */
     public function handle()
     {
@@ -43,11 +43,13 @@ class SessionGarbageCollectCommand extends Command
         ) {
             $this->components->info('The ['.$session->getDefaultDriver().'] session driver does not require garbage collection.');
 
-            return;
+            return self::SUCCESS;
         }
 
         $handler->gc((int) $this->laravel['config']->get('session.lifetime') * 60);
 
         $this->components->info('Session garbage collector ran successfully.');
+
+        return self::SUCCESS;
     }
 }
